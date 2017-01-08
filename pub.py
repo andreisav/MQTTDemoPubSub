@@ -1,3 +1,4 @@
+#!/usr/bin/python
 #Web service to publish to MQTT
 import sys
 import web   #TODO investigate the package
