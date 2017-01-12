@@ -1,10 +1,11 @@
 #
 from pymongo import MongoClient
 
-client = MongoClient('mongodb://localhost:27017/')
+# client = MongoClient('mongodb://localhost:27017/')
+client = MongoClient('mongodb://mqtt_user:password@ds161048.mlab.com:61048/mqttdemo')
 
 # data base name : 'test-database-1'
-mydb = client['MQTTDemo']
+mydb = client['mqttdemo']
 
 import datetime
 

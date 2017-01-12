@@ -9,12 +9,11 @@ import logging
 from pymongo import MongoClient
 
 #TODO configure
-os.environ["MQTT_PORT"] = "1883"
+MQTT_PORT = os.getenv('MQTT_PORT', '1883')
 #os.environ["MQTT_HOST"] = "iot.eclipse.org"
-os.environ["MQTT_HOST"] = "test.mosquitto.org"
-os.environ["PORT"] = "4000"
-os.environ["HOST"] = "localhost"
-os.environ["DB_CONNECTION"] = "mongodb://localhost:27017/"
+MQTT_HOST = os.getenv('MQTT_HOST', 'test.mosquitto.org')
+DB_CONNECTION = os.getenv('DB_CONNECTION', 'mongodb://localhost:27017/')
+TOPIC = os.getenv('TOPIC', 'as_demo_mqtt/devices/{}/commands')
 
 logging.basicConfig(stream=sys.stdout,
                         level=logging.DEBUG,
@@ -41,7 +40,7 @@ class commands:
             # publish to device commands queue
             did = query.get('did')
             if not did == None:
-                publishMessage("as_demo_mqtt/devices/commands/" + did, data)
+                publishMessage(TOPIC.format(did), data)
             else:
                 logger.warning("POST: Invalid Parameters: %s", format(query))
                 web.ctx.status = "400 Bad Request"
@@ -54,11 +53,11 @@ if __name__ == "__main__":
     app.run()  #TODO figure out exception handling
 
 
-client = MongoClient(os.environ["DB_CONNECTION"])
-mydb = client['MQTTDemo']
+client = MongoClient(DB_CONNECTION)
+mydb = client['mqttdemo']
 
 def publishMessage(topic, msg):
-    publisher.single(topic, msg, hostname=os.environ["MQTT_HOST"], port=os.environ["MQTT_PORT"])
+    publisher.single(topic, msg, hostname=MQTT_HOST, port=MQTT_PORT)
     # save to mongo
     myrecord = {
         "type": "outgoing",

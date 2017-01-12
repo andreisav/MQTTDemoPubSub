@@ -10,13 +10,13 @@ from pymongo import MongoClient
 import logging
 
 #TODO configure
-os.environ["MQTT_PORT"] = "1883"
-#os.environ["MQTT_HOST"] = "iot.eclipse.org"
-os.environ["MQTT_HOST"] = "test.mosquitto.org"
-os.environ["PORT"] = "4000"
-os.environ["HOST"] = "localhost"
-os.environ["DB_CONNECTION"] = "mongodb://localhost:27017/"
-os.environ["MESSENGER_URL"] = "http://localhost:3000/devices"
+MQTT_PORT = os.getenv('MQTT_PORT', '1883')
+MQTT_HOST = os.getenv('MQTT_HOST', "test.mosquitto.org")
+
+DB_CONNECTION = os.getenv('DB_CONNECTION', "mongodb://localhost:27017/")
+MESSENGER_URL = os.getenv('MESSENGER_URL', "http://localhost:3000/incoming")
+
+TOPIC = os.getenv('TOPIC', 'as_demo_mqtt/devices/#')
 
 logging.basicConfig(stream=sys.stdout,
                         level=logging.DEBUG,
@@ -28,7 +28,6 @@ logging.basicConfig(stream=sys.stdout,
 logger = logging.getLogger(__name__)
 
 
-topic = "as_demo_mqtt/devices/#"
 
 try:
     import paho.mqtt.client as mqtt
@@ -47,16 +46,17 @@ except ImportError:
 def on_connect(mqttc, obj, flags, rc):
     logger.info("Connected: %s", str(rc))
 
-client = MongoClient(os.environ["DB_CONNECTION"])
-mydb = client['MQTTDemo']
+
+client = MongoClient(DB_CONNECTION)
+mydb = client['mqttdemo']
 
 def on_message(mqttc, obj, msg):
-    logger.debug("Message received: %s",  msg.topic+" "+str(msg.qos)+" "+str(msg.payload))
+    logger.debug("Message received: %s",  msg.topic+" "+str(msg.qos)+" "+msg.payload)
 
     #save to mongo
     myrecord = {
         "type": "incoming",
-        "payload": str(msg.payload),
+        "payload": msg.payload, #TODO this writes out a string. consider parsing json
         "tx": datetime.datetime.utcnow()
     }
 
@@ -66,32 +66,44 @@ def on_message(mqttc, obj, msg):
     except Exception as e:
         logger.error ("Failed writing mongo record: ", exc_info=True)
 
-    json_obj = getJson(msg.payload)
+    try:
+        json_obj = getJson(msg.payload)
+        message_out = None
+        # IM the fb user if we can
+        if not json_obj is None:
+            telemetry = json_obj.get('telemetry')
+            if not telemetry is None:
+                accel = telemetry.get('accel')
+                if not accel is None:
+                    state = accel.get('state')
+                    if not state is None:
+                        if state == 'STOPPED':
+                            message_out = {"text": "You device is not moving"}
+                        elif state == 'MOVING':
+                            message_out = {"text": "You device is moving"}
+                        else:
+                            message_out = {"text":"You device is in limbo"}
+                else:
+                    loc = telemetry.get('loc')
+                    if not loc is None:
+                        message_out = {"text": "Your device's location: ({} {})".format(loc.get('lat'), loc.get('long'))}
+                        message_out['image_url'] = "https://maps.googleapis.com/maps/api/staticmap?size=764x400&center={},{}&zoom=16&markers={},{}".format(loc.get('lat'), loc.get('long'), loc.get('lat'), loc.get('long'))
+                        message_out['item_url'] = "http://maps.apple.com/maps?q={},{}&z=16".format(loc.get('lat'), loc.get('long'))
+            if not message_out is None:
+                # send update to the user
+                url = MESSENGER_URL  # send to messenger
 
-    #IM the fb user if we can
-    if not json_obj is None:
-        telemetry = json_obj.get('telemetry')
-        if not telemetry is None:
-            state = telemetry.get('state')
-            if not state is None:
-               if state == 'STOPPED':
-                    message_out = "You device is not moving"
-               elif state == 'MOVING':
-                    message_out = "You device is moving"
-               else:
-                    message_out = "You device is in limbo"
+                did = json_obj.get('did')
+                data = {"did": did, "message": message_out}
+                params = {'access_token': '1234'}
+                # TODO handle failure
+                try:
+                    requests.post(url, params=params, json=data)
+                except requests.exceptions.RequestException as e:
+                    logger.error("Failed HTTP request: ", exc_info=True)
+    except Exception as e:
+        logger.error ("Exception: ", exc_info=True)
 
-        #send update to the user
-        url = os.environ["MESSENGER_URL"] #send to messenger
-
-        did = json_obj.get('did')
-        data = {"did": did, "msg": message_out}
-        params = {'access_token': '1234'}
-        #TODO handle failure
-        try:
-            requests.post(url, params=params, json=data)
-        except requests.exceptions.RequestException as e:
-            logger.error ("Failed HTTP request: ",  exc_info=True)
 
 
 def on_publish(mqttc, obj, mid):
@@ -121,9 +133,9 @@ mqttc.on_publish = on_publish
 mqttc.on_subscribe = on_subscribe
 
 # Uncomment to enable debug messages
-#mqttc.on_log = on_log
+mqttc.on_log = on_log
 #TODO configure params
-mqttc.connect(os.environ["MQTT_HOST"], os.environ["MQTT_PORT"], 60)
-mqttc.subscribe(topic, 0)
+mqttc.connect(MQTT_HOST, MQTT_PORT, 60)
+mqttc.subscribe(TOPIC, 0)
 
 mqttc.loop_forever() #TODO exception handling, unhnadled exceptions
