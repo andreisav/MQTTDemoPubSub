@@ -1,3 +1,4 @@
 paho-mqtt==1.2
 pymongo==3.4.0
+requests==2.12.4
 web.py==0.38
