@@ -1,2 +1,2 @@
 #!/bin/bash
-python /home/ec2-user/mqttdemopub/
+python /home/ec2-user/mqttdemopub/pub.py

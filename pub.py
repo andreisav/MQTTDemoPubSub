@@ -7,8 +7,10 @@ import os
 import datetime
 import logging
 from pymongo import MongoClient
+import json
 
 #TODO configure
+
 MQTT_PORT = os.getenv('MQTT_PORT', '1883')
 #os.environ["MQTT_HOST"] = "iot.eclipse.org"
 MQTT_HOST = os.getenv('MQTT_HOST', 'test.mosquitto.org')
@@ -35,12 +37,17 @@ class commands:
         try:
             query = web.input()
             #TODO validate access_token
-            data = web.data()
+            data = getJson(web.data())
+
+            if data is None or data.get('did') is None or data.get('command') is None:
+                web.ctx.status = "400 Bad Request"
+                return
+
             #validata data
             # publish to device commands queue
-            did = query.get('did')
+            did = data.get('did')
             if not did == None:
-                publishMessage(TOPIC.format(did), data)
+                publishMessage(TOPIC.format(did), json.dumps({"command": data.get('command')}))
             else:
                 logger.warning("POST: Invalid Parameters: %s", format(query))
                 web.ctx.status = "400 Bad Request"
@@ -65,8 +72,12 @@ def publishMessage(topic, msg):
         "tx": datetime.datetime.utcnow()
     }
 
+    record_id = mydb.device_messages.insert(myrecord)
+    logger.debug("Inserted record: %s", str(record_id))
+
+def getJson(myjson):
     try:
-        record_id = mydb.device_messages.insert(myrecord)
-        logger.debug("Inserted record: %s", str(record_id))
-    except Exception as e:
-        logger.error ("Failed writing mongo record: ", exc_info=True)
+        json_object = json.loads(myjson)
+    except ValueError, e:
+        return None
+    return json_object
