@@ -6,3 +6,5 @@ curl -O https://aws-codedeploy-us-east-1.s3.amazonaws.com/latest/install
 chmod +x ./install
 ./install
 yum install -y jq
+sudo yum install -y awslogs
+sudo chkconfig awslogs on

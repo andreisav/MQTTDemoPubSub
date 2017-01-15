@@ -26,6 +26,14 @@ logging.basicConfig(stream=sys.stdout,
                                 '%(message)s')
 logger = logging.getLogger(__name__)
 
+try:
+    import watchtower
+    logger.addHandler(watchtower.CloudWatchLogHandler())
+    #set env  to indicate the region export AWS_DEFAULT_REGION=us-east-1
+except Exception:
+    logger.info('No watchtower')
+
+
 urls = (
         "/commands", "commands",
         )

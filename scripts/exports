@@ -1,0 +1,7 @@
+#!/bin/bash
+#requirement env variable
+export DB_CONNECTION
+export MQTT_HOST
+export MQTT_PORT
+export AWS_DEFAULT_REGION=us-east-1
+export MESSENGER_URL

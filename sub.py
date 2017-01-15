@@ -18,6 +18,7 @@ MESSENGER_URL = os.getenv('MESSENGER_URL', "http://localhost:3000/incoming")
 
 TOPIC = os.getenv('TOPIC', 'as_demo_mqtt/devices/#')
 
+
 logging.basicConfig(stream=sys.stdout,
                         level=logging.DEBUG,
                         format='%(filename)s: '
@@ -27,6 +28,12 @@ logging.basicConfig(stream=sys.stdout,
                                 '%(message)s')
 logger = logging.getLogger(__name__)
 
+try:
+    import watchtower
+    logger.addHandler(watchtower.CloudWatchLogHandler())
+    #set env  to indicate the region export AWS_DEFAULT_REGION=us-east-1
+except Exception:
+    logger.info('No watchtower')
 
 
 try:
@@ -123,7 +130,7 @@ def getJson(myjson):
     return json_object
 
 # If you want to use a specific client id, use
-# mqttc = mqtt.Client("Subscriber1")
+# mqttc = mqtt.Client("Sscriber1")
 # but note that the client id must be unique on the broker. Leaving the client
 # id parameter empty will generate a random id for you.
 mqttc = mqtt.Client()
